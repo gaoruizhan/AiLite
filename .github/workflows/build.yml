@@ -1,0 +1,68 @@
+name: Build and Release APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build APK with Gradle
+        run: |
+          ./gradlew clean
+          ./gradlew assembleDebug
+
+      - name: Generate Release Name
+        id: release_info
+        run: |
+          echo "release_date=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+          echo "release_tag=$(date +'v%Y%m%d_%H%M%S')" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: app/build/outputs/apk/debug/app-debug.apk
+          tag_name: ${{ steps.release_info.outputs.release_tag }}
+          body: |
+            ## AiLite APK Release
+            **Build Time:** ${{ steps.release_info.outputs.release_date }}
+            **Commit:** ${{ github.sha }}
+            
+            ### Features:
+            - OpenAI API Support
+            - Google Gemini API Support
+            - Grok API Support
+            - Multi-account Management
+            - Chat History
+            - Clear History Function
+            
+            ### Installation:
+            1. Download `app-debug.apk`
+            2. Enable "Unknown Sources" in your Android device settings
+            3. Open the APK file and install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload APK as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ailite-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
